@@ -1,0 +1,41 @@
+flowchart TD
+    subgraph "Input"
+        PJ[~/.jade/projects.json<br/>registry]
+        T1[jade-cli/.claude/tasks/tasks.json]
+        T2[jade-index/.claude/tasks/tasks.json]
+        T3[jade-ide/.claude/tasks/tasks.json]
+        TN[... 7 more projects]
+    end
+
+    subgraph "jade-dev-assist Pipeline"
+        SCAN[Scanner<br/>scanner.js<br/>Merge all tasks]
+        SCORE[Scorer<br/>scorer.js<br/>5-factor priority]
+        PRES[Presenter<br/>presenter.js<br/>Terminal table]
+        DISP[Dispatcher<br/>dispatcher.js<br/>Worker prompts]
+    end
+
+    subgraph "Output"
+        TABLE[Ranked Task Table]
+        WORKER[Swarm Worker<br/>w/ context]
+    end
+
+    PJ --> SCAN
+    T1 --> SCAN
+    T2 --> SCAN
+    T3 --> SCAN
+    TN --> SCAN
+
+    SCAN -->|merged tasks| SCORE
+    SCORE -->|scored tasks| PRES
+    SCORE -->|top task| DISP
+
+    PRES --> TABLE
+    DISP --> WORKER
+
+    style PJ fill:#e1f5ff
+    style SCAN fill:#fff4e1
+    style SCORE fill:#e8f5e9
+    style PRES fill:#f3e5f5
+    style DISP fill:#ffebee
+    style TABLE fill:#e1f5ff
+    style WORKER fill:#e1f5ff

@@ -49,6 +49,13 @@ jade-cli/
 
 ## Dependencies
 
+| Package | Version | Purpose |
+|---------|---------|---------|
+| ink | ^5.0.0 | React for CLI |
+| react | ^18.0.0 | UI framework |
+| zustand | ^4.5.0 | State management |
+| vitest | ^2.0.0 | Test framework |
+
 ```
 REQUIRES:
 ├── jade-dev-assist   # Scorer for task prioritization

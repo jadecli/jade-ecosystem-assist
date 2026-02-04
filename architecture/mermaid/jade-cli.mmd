@@ -1,0 +1,58 @@
+graph LR
+    subgraph "Terminal"
+        T[User Input]
+    end
+
+    subgraph "jade-cli React Ink UI"
+        CLI[CLI Entry<br/>cli.ts]
+
+        subgraph "Commands"
+            ORC[orchestrate.tsx]
+            TSK[tasks.tsx]
+            IDX[index.tsx]
+        end
+
+        subgraph "Components"
+            TL[TaskList.tsx]
+            TC[TaskCard.tsx]
+            SB[StatusBar.tsx]
+        end
+
+        subgraph "Library"
+            SCH[scheduler.ts]
+            JDA[jade-dev-assist.ts]
+        end
+    end
+
+    subgraph "External Services"
+        MCP[jade-dev-assist MCP<br/>scorer]
+        JI[jade-index MCP<br/>search]
+        TJ[tasks.json files<br/>per project]
+    end
+
+    T --> CLI
+    CLI --> ORC
+    CLI --> TSK
+    CLI --> IDX
+
+    ORC --> TL
+    TSK --> TC
+    TSK --> SB
+
+    ORC --> SCH
+    SCH --> JDA
+
+    JDA --> MCP
+    IDX --> JI
+    TSK --> TJ
+
+    style T fill:#e1f5ff
+    style CLI fill:#fff4e1
+    style ORC fill:#e8f5e9
+    style TSK fill:#e8f5e9
+    style IDX fill:#e8f5e9
+    style TL fill:#f3e5f5
+    style TC fill:#f3e5f5
+    style SB fill:#f3e5f5
+    style SCH fill:#ffebee
+    style JDA fill:#ffebee
