@@ -85,6 +85,11 @@ for md_file in sorted(scaffolds_dir.glob('*.md')):
 
 if '$FORMAT' == 'json':
     import json
+    # Convert dates to strings for JSON serialization
+    for result in results:
+        for key, value in result.items():
+            if hasattr(value, 'isoformat'):
+                result[key] = value.isoformat()
     print(json.dumps(results, indent=2))
 else:
     for meta in results:
