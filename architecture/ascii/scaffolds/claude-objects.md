@@ -44,6 +44,19 @@ claude-objects/
 
 ## Dependencies
 
+### Core
+| Package | Version | Purpose |
+|---------|---------|---------|
+| fastmcp | ^0.2.0 | MCP server framework |
+| httpx | ^0.27.0 | HTTP client |
+| pydantic | ^2.0.0 | Data validation |
+
+### Testing
+| Package | Version | Purpose |
+|---------|---------|---------|
+| pytest | ^8.0.0 | Test framework |
+| pytest-asyncio | ^0.23.0 | Async test support |
+
 ```
 REQUIRES:
 ├── jade-index        # For semantic search

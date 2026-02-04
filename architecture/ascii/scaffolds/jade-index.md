@@ -68,6 +68,20 @@ jade-index/
 
 ## Dependencies
 
+### Core
+| Package | Version | Purpose |
+|---------|---------|---------|
+| sentence-transformers | ^3.0.0 | GPU embeddings |
+| pgvector | ^0.3.0 | Vector storage |
+| tree-sitter | ^0.22.0 | AST parsing |
+| click | ^8.0.0 | CLI framework |
+
+### Infrastructure
+| Package | Version | Purpose |
+|---------|---------|---------|
+| psycopg[binary] | ^3.0.0 | PostgreSQL driver |
+| redis | ^5.0.0 | Dragonfly client |
+
 ```
 REQUIRES:
 ├── jadecli-infra     # PostgreSQL + pgvector, Dragonfly
