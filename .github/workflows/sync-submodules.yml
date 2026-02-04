@@ -1,0 +1,113 @@
+name: Sync Submodules
+
+on:
+  schedule:
+    # Run weekly on Sundays at 2:00 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (no PR creation)'
+        required: false
+        default: 'false'
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-submodules:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Update submodules
+        id: update
+        run: |
+          echo "## Submodule Update Summary" > /tmp/changes.md
+          echo "" >> /tmp/changes.md
+
+          CHANGES_FOUND=false
+
+          # Update each submodule and track changes
+          for submodule in origin/*; do
+            if [ -d "$submodule" ]; then
+              name=$(basename "$submodule")
+              echo "Checking $name..."
+
+              cd "$submodule"
+              OLD_SHA=$(git rev-parse HEAD)
+
+              # Fetch and checkout the tracking branch
+              git fetch origin
+              BRANCH=$(git config -f ../../.gitmodules --get "submodule.origin/$name.branch" || echo "main")
+              git checkout "origin/$BRANCH" 2>/dev/null || git checkout "origin/main"
+
+              NEW_SHA=$(git rev-parse HEAD)
+              cd ../..
+
+              if [ "$OLD_SHA" != "$NEW_SHA" ]; then
+                CHANGES_FOUND=true
+                # Get commit summary between old and new
+                cd "$submodule"
+                COMMIT_COUNT=$(git rev-list --count $OLD_SHA..$NEW_SHA 2>/dev/null || echo "?")
+                LATEST_MSG=$(git log -1 --pretty=format:"%s" 2>/dev/null || echo "unknown")
+                cd ../..
+
+                echo "- **$name**: $COMMIT_COUNT new commit(s)" >> /tmp/changes.md
+                echo "  - Latest: $LATEST_MSG" >> /tmp/changes.md
+                echo "  - \`${OLD_SHA:0:7}\` -> \`${NEW_SHA:0:7}\`" >> /tmp/changes.md
+                echo "" >> /tmp/changes.md
+              fi
+            fi
+          done
+
+          if [ "$CHANGES_FOUND" = "true" ]; then
+            echo "changes_found=true" >> $GITHUB_OUTPUT
+            echo "Changes detected in submodules"
+          else
+            echo "changes_found=false" >> $GITHUB_OUTPUT
+            echo "No changes detected"
+            echo "No changes detected in any submodules." >> /tmp/changes.md
+          fi
+
+      - name: Stage changes
+        if: steps.update.outputs.changes_found == 'true'
+        run: |
+          git add -A
+          git status
+
+      - name: Create Pull Request
+        if: steps.update.outputs.changes_found == 'true' && github.event.inputs.dry_run != 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: sync submodules to latest upstream"
+          branch: chore/sync-submodules
+          delete-branch: true
+          title: "chore: sync submodules to latest upstream"
+          body-path: /tmp/changes.md
+          labels: |
+            automation
+            submodules
+
+      - name: Dry run output
+        if: github.event.inputs.dry_run == 'true'
+        run: |
+          echo "=== DRY RUN - No PR created ==="
+          echo ""
+          cat /tmp/changes.md
+          echo ""
+          echo "=== Git status ==="
+          git status
