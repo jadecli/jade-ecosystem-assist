@@ -135,7 +135,7 @@ get_recent_commits() {
 check_submodule_staleness() {
   local submodule_path="$1"
 
-  if [[ ! -d "$submodule_path/.git" ]]; then
+  if [[ ! -d "$submodule_path/.git" ]] && [[ ! -f "$submodule_path/.git" ]]; then
     echo "not-initialized"
     return
   fi
