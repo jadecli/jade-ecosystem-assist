@@ -1,3 +1,21 @@
+---
+entity_id: scaffold-jade-swarm
+entity_name: jade-swarm-superpowers
+entity_type: project_scaffold
+entity_language: markdown
+entity_status: scaffolding
+entity_path: modules/jade-swarm-superpowers
+entity_dependencies:
+  core: []
+  testing: []
+  dev: []
+entity_services: []
+entity_ports: []
+entity_health_check: "cd modules/jade-swarm-superpowers && find skills -name '*.md' | wc -l"
+entity_created: 2026-02-04
+entity_last_validated: 2026-02-04
+---
+
 # jade-swarm
 
 Fork of obra/superpowers with swarm orchestration skills for multi-agent coordination.

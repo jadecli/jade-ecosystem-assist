@@ -1,3 +1,24 @@
+---
+entity_id: scaffold-jade-index
+entity_name: jade-index
+entity_type: project_scaffold
+entity_language: python
+entity_status: buildable
+entity_path: modules/jade-index
+entity_dependencies:
+  core: [sentence-transformers, pgvector, tree-sitter, click]
+  infrastructure: ["psycopg[binary]", redis]
+  testing: [pytest]
+  dev: [ruff, ty]
+entity_services:
+  - indexer
+  - api
+entity_ports: [8000]
+entity_health_check: "cd modules/jade-index && uv run pytest tests/"
+entity_created: 2026-02-04
+entity_last_validated: 2026-02-04
+---
+
 # jade-index
 
 Semantic search engine with Merkle tree indexing, AST chunking, and GPU embeddings.

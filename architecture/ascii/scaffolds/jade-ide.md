@@ -1,3 +1,21 @@
+---
+entity_id: scaffold-jade-ide
+entity_name: jade-ide
+entity_type: project_scaffold
+entity_language: typescript
+entity_status: blocked
+entity_path: modules/jade-ide
+entity_dependencies:
+  core: [vscode-core]
+  testing: []
+  dev: [typescript]
+entity_services: []
+entity_ports: []
+entity_health_check: "cd modules/jade-ide && npm run compile"
+entity_created: 2026-02-04
+entity_last_validated: 2026-02-04
+---
+
 # jade-ide
 
 VS Code fork with integrated AI assistance and jade-index semantic search.
