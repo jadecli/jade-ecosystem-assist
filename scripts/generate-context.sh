@@ -116,6 +116,61 @@ check_project_health() {
   fi
 }
 
+# Function to get recent commit activity
+get_recent_commits() {
+  local project_dir="$1"
+  local limit="${2:-3}"
+
+  if [[ ! -d "$project_dir/.git" ]]; then
+    echo "not a git repo"
+    return
+  fi
+
+  cd "$project_dir"
+  git log -n "$limit" --pretty=format:"%h %ar: %s" 2>/dev/null || echo "no commits"
+  cd - &>/dev/null
+}
+
+# Function to check if submodule is stale
+check_submodule_staleness() {
+  local submodule_path="$1"
+
+  if [[ ! -d "$submodule_path/.git" ]]; then
+    echo "not-initialized"
+    return
+  fi
+
+  cd "$submodule_path"
+
+  # Fetch remote to get latest info (quietly)
+  git fetch origin --quiet 2>/dev/null || {
+    echo "fetch-failed"
+    cd - &>/dev/null
+    return
+  }
+
+  # Get current commit and remote head
+  local current=$(git rev-parse HEAD 2>/dev/null)
+  local remote=$(git rev-parse origin/HEAD 2>/dev/null || git rev-parse origin/main 2>/dev/null || git rev-parse origin/master 2>/dev/null)
+
+  if [[ "$current" == "$remote" ]]; then
+    echo "up-to-date"
+  else
+    local behind=$(git rev-list --count HEAD..origin/HEAD 2>/dev/null || git rev-list --count HEAD..origin/main 2>/dev/null || echo "0")
+    local ahead=$(git rev-list --count origin/HEAD..HEAD 2>/dev/null || git rev-list --count origin/main..HEAD 2>/dev/null || echo "0")
+
+    if [[ $behind -gt 0 ]] && [[ $ahead -eq 0 ]]; then
+      echo "behind-$behind"
+    elif [[ $ahead -gt 0 ]] && [[ $behind -eq 0 ]]; then
+      echo "ahead-$ahead"
+    else
+      echo "diverged"
+    fi
+  fi
+
+  cd - &>/dev/null
+}
+
 # Generate the context document
 generate_context() {
   local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -164,6 +219,29 @@ HEADER
 
   echo ""
 
+  # Recent commit activity
+  if [[ "$BRIEF" != "true" ]]; then
+    echo "## Recent Activity"
+    echo ""
+
+    for name in $(echo "${!projects[@]}" | tr ' ' '\n' | sort); do
+      # Skip if focus mode and doesn't match
+      if [[ -n "$FOCUS_PROJECT" ]] && [[ "$name" != "$FOCUS_PROJECT" ]]; then
+        continue
+      fi
+
+      local path="${projects[$name]}"
+      if [[ -d "$path" ]]; then
+        echo "### $name"
+        echo ""
+        echo '```'
+        get_recent_commits "$path" 3
+        echo '```'
+        echo ""
+      fi
+    done
+  fi
+
   # Architecture scaffolds (the main content)
   echo "## Architecture Scaffolds"
   echo ""
@@ -210,6 +288,49 @@ HEADER
     echo "_No scaffolds directory found at $SCAFFOLDS_DIR_"
     echo ""
   fi
+
+  # Submodule status
+  echo "## Submodule Status"
+  echo ""
+
+  if [[ -f "$REPO_ROOT/.gitmodules" ]]; then
+    echo "| Submodule | Status |"
+    echo "|-----------|--------|"
+
+    # Parse .gitmodules for submodule paths
+    grep -E "^\[submodule" "$REPO_ROOT/.gitmodules" | sed 's/\[submodule "\(.*\)"\]/\1/' | while read -r name; do
+      local path=$(grep -A 2 "^\[submodule \"$name\"\]" "$REPO_ROOT/.gitmodules" | grep "path = " | cut -d'=' -f2 | xargs)
+      if [[ -n "$path" ]]; then
+        local status=$(check_submodule_staleness "$REPO_ROOT/$path")
+
+        case "$status" in
+          up-to-date)
+            echo "| $name | ✅ Up to date |"
+            ;;
+          behind-*)
+            local count=$(echo "$status" | cut -d'-' -f2)
+            echo "| $name | ⚠️ Behind by $count commits |"
+            ;;
+          ahead-*)
+            local count=$(echo "$status" | cut -d'-' -f2)
+            echo "| $name | ⚠️ Ahead by $count commits |"
+            ;;
+          diverged)
+            echo "| $name | ❌ Diverged from remote |"
+            ;;
+          not-initialized)
+            echo "| $name | ❌ Not initialized |"
+            ;;
+          fetch-failed)
+            echo "| $name | ⚠️ Fetch failed |"
+            ;;
+        esac
+      fi
+    done
+  else
+    echo "_No .gitmodules file found_"
+  fi
+  echo ""
 
   # Infrastructure status
   echo "## Infrastructure"
