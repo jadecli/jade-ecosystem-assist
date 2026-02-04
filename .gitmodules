@@ -1,0 +1,52 @@
+# jadecli ecosystem submodules
+# These are read-only references to track the 10 active projects
+
+[submodule "origin/claude-objects"]
+	path = origin/claude-objects
+	url = https://github.com/jadecli/claude-objects.git
+	branch = main
+
+[submodule "origin/dotfiles"]
+	path = origin/dotfiles
+	url = https://github.com/jadecli/dotfiles.git
+	branch = main
+
+[submodule "origin/jade-claude-settings"]
+	path = origin/jade-claude-settings
+	url = https://github.com/jadecli/jade-claude-settings.git
+	branch = main
+
+[submodule "origin/jade-cli"]
+	path = origin/jade-cli
+	url = https://github.com/jadecli/jade-cli.git
+	branch = main
+
+[submodule "origin/jade-dev-assist"]
+	path = origin/jade-dev-assist
+	url = https://github.com/jadecli/jade-dev-assist.git
+	branch = main
+
+[submodule "origin/jade-ide"]
+	path = origin/jade-ide
+	url = https://github.com/jadecli/jade-ide.git
+	branch = jadecli-main
+
+[submodule "origin/jade-index"]
+	path = origin/jade-index
+	url = https://github.com/jadecli/jade-index.git
+	branch = main
+
+[submodule "origin/jade-swarm"]
+	path = origin/jade-swarm
+	url = https://github.com/jadecli/jade-swarm.git
+	branch = jadecli-main
+
+[submodule "origin/jadecli-infra"]
+	path = origin/jadecli-infra
+	url = https://github.com/jadecli/jadecli-infra.git
+	branch = main
+
+[submodule "origin/jadecli-roadmap-and-architecture"]
+	path = origin/jadecli-roadmap-and-architecture
+	url = https://github.com/jadecli/jadecli-roadmap-and-architecture.git
+	branch = main
