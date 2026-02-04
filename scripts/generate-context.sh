@@ -21,6 +21,7 @@ CHARS_PER_TOKEN=4
 # Parse arguments
 OUTPUT="$DEFAULT_OUTPUT"
 BRIEF=false
+FOCUS_PROJECT=""
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -33,13 +34,18 @@ while [[ $# -gt 0 ]]; do
       MAX_TOKENS=8000
       shift
       ;;
+    --focus)
+      FOCUS_PROJECT="$2"
+      shift 2
+      ;;
     -h|--help)
-      echo "Usage: $(basename "$0") [-o OUTPUT] [--brief]"
+      echo "Usage: $(basename "$0") [-o OUTPUT] [--brief] [--focus PROJECT]"
       echo ""
       echo "Options:"
-      echo "  -o, --output PATH   Output file (default: ~/.jade/context.md, use '-' for stdout)"
-      echo "  --brief             Generate shorter context (~8k tokens)"
-      echo "  -h, --help          Show this help"
+      echo "  -o, --output PATH     Output file (default: ~/.jade/context.md, use '-' for stdout)"
+      echo "  --brief               Generate shorter context (~8k tokens)"
+      echo "  --focus PROJECT       Generate focused context for single project"
+      echo "  -h, --help            Show this help"
       exit 0
       ;;
     *)
@@ -145,6 +151,11 @@ HEADER
   )
 
   for name in $(echo "${!projects[@]}" | tr ' ' '\n' | sort); do
+    # Skip if focus mode and doesn't match
+    if [[ -n "$FOCUS_PROJECT" ]] && [[ "$name" != "$FOCUS_PROJECT" ]]; then
+      continue
+    fi
+
     local path="${projects[$name]}"
     local health=$(check_project_health "$path" "$name")
     local tasks=$(get_project_status "$path")
@@ -164,6 +175,12 @@ HEADER
     for scaffold in "$SCAFFOLDS_DIR"/*.md; do
       if [[ -f "$scaffold" ]]; then
         local name=$(basename "$scaffold" .md)
+
+        # Skip if focus mode and doesn't match
+        if [[ -n "$FOCUS_PROJECT" ]] && [[ "$name" != "$FOCUS_PROJECT" ]]; then
+          continue
+        fi
+
         local content=$(cat "$scaffold")
         local content_chars=${#content}
 
