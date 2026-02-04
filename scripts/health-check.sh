@@ -26,6 +26,7 @@ QUICK_MODE=false
 JSON_OUTPUT=false
 SINGLE_PROJECT=""
 FIX_MODE=false
+SAVE_REPORT=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -42,6 +43,10 @@ while [[ $# -gt 0 ]]; do
       FIX_MODE=true
       shift
       ;;
+    --save|-s)
+      SAVE_REPORT=true
+      shift
+      ;;
     -h|--help)
       echo "Usage: $(basename "$0") [OPTIONS] [PROJECT]"
       echo ""
@@ -49,6 +54,7 @@ while [[ $# -gt 0 ]]; do
       echo "  --quick, -q    Skip slow checks (tests, full builds)"
       echo "  --json, -j     Output results as JSON"
       echo "  --fix, -f      Auto-repair common issues"
+      echo "  --save, -s     Save report to docs/health-reports/"
       echo "  -h, --help     Show this help"
       echo ""
       echo "Projects:"
@@ -303,6 +309,81 @@ for project_def in "${PROJECTS[@]}"; do
     HEALTHY_COUNT=$((HEALTHY_COUNT + 1))
   fi
 done
+
+# Save report if requested
+if [[ "$SAVE_REPORT" == "true" ]]; then
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  REPORT_DIR="$SCRIPT_DIR/../docs/health-reports"
+  mkdir -p "$REPORT_DIR"
+
+  TIMESTAMP=$(date -u +"%Y-%m-%d-%H%M%S")
+
+  if [[ "$JSON_OUTPUT" == "true" ]]; then
+    REPORT_FILE="$REPORT_DIR/health-report-$TIMESTAMP.json"
+
+    {
+      echo "{"
+      echo "  \"generated\": \"$(date -u +"%Y-%m-%d %H:%M:%S UTC")\","
+      echo "  \"mode\": \"$(if [[ "$QUICK_MODE" == "true" ]]; then echo "quick"; else echo "full"; fi)\","
+      echo "  \"summary\": {"
+      echo "    \"healthy\": $HEALTHY_COUNT,"
+      echo "    \"total\": $TOTAL_COUNT"
+      echo "  },"
+      echo "  \"projects\": {"
+
+      first=true
+      for name in $(echo "${!RESULTS[@]}" | tr ' ' '\n' | sort); do
+        if [[ "$first" == "true" ]]; then
+          first=false
+        else
+          echo ","
+        fi
+        printf '    "%s": {"status": "%s", "message": "%s"}' "$name" "${RESULTS[$name]}" "${MESSAGES[$name]}"
+      done
+      echo ""
+      echo "  }"
+      echo "}"
+    } > "$REPORT_FILE"
+  else
+    REPORT_FILE="$REPORT_DIR/health-report-$TIMESTAMP.md"
+
+    {
+      echo "# Health Check Report"
+      echo ""
+      echo "**Generated:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+      echo "**Mode:** $(if [[ "$QUICK_MODE" == "true" ]]; then echo "Quick"; else echo "Full"; fi)"
+      echo "**Summary:** $HEALTHY_COUNT/$TOTAL_COUNT healthy"
+      echo ""
+      echo "## Results"
+      echo ""
+      echo "| Project | Status | Message |"
+      echo "|---------|--------|---------|"
+
+      for name in $(echo "${!RESULTS[@]}" | tr ' ' '\n' | sort); do
+        status="${RESULTS[$name]}"
+        message="${MESSAGES[$name]}"
+
+        case "$status" in
+          pass)
+            echo "| $name | ✅ PASS | $message |"
+            ;;
+          warn)
+            echo "| $name | ⚠️ WARN | $message |"
+            ;;
+          fail)
+            echo "| $name | ❌ FAIL | $message |"
+            ;;
+          missing)
+            echo "| $name | ❌ MISS | $message |"
+            ;;
+        esac
+      done
+    } > "$REPORT_FILE"
+  fi
+
+  echo ""
+  echo "Report saved to: $REPORT_FILE"
+fi
 
 # Output results
 if [[ "$JSON_OUTPUT" == "true" ]]; then
