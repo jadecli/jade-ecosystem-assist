@@ -1,1 +1,3 @@
 node_modules/
+docs/health-reports/*.md
+docs/health-reports/*.json
