@@ -1,0 +1,47 @@
+graph TB
+    subgraph "Claude Code Client"
+        CC[Claude Code]
+    end
+
+    subgraph "claude-objects MCP Servers"
+        JI[jade_index_mcp<br/>5 tools]
+        JD[jade_dev_assist_mcp<br/>orchestrator]
+        JM[jade_metrics_mcp<br/>metrics]
+        SC[swarm_cache_mcp<br/>cache access]
+        LT[llms_txt_mcp<br/>LLMs.txt serving]
+        PA[parallel_ai_mcp<br/>parallel dispatch]
+    end
+
+    subgraph "Backend Services"
+        IDX[jade-index<br/>Python/GPU]
+        DA[jade-dev-assist<br/>Node.js]
+        DF[Dragonfly<br/>cache]
+        PG[PostgreSQL<br/>pgvector]
+        MG[MongoDB<br/>metrics]
+    end
+
+    CC -->|MCP protocol| JI
+    CC -->|MCP protocol| JD
+    CC -->|MCP protocol| JM
+    CC -->|MCP protocol| SC
+    CC -->|MCP protocol| LT
+    CC -->|MCP protocol| PA
+
+    JI --> IDX
+    JI --> PG
+    JD --> DA
+    SC --> DF
+    JM --> MG
+
+    style CC fill:#e1f5ff
+    style JI fill:#fff4e1
+    style JD fill:#fff4e1
+    style JM fill:#fff4e1
+    style SC fill:#fff4e1
+    style LT fill:#fff4e1
+    style PA fill:#fff4e1
+    style IDX fill:#e8f5e9
+    style DA fill:#e8f5e9
+    style DF fill:#f3e5f5
+    style PG fill:#f3e5f5
+    style MG fill:#f3e5f5

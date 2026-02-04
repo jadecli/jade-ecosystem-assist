@@ -97,3 +97,10 @@ See `architecture/ascii/scaffolds/<project>.md` for:
 - Ecosystem connection graphs
 - Dependency trees
 - Key files and commands
+
+## Visual Architecture
+
+ASCII scaffolds: `architecture/ascii/scaffolds/<project>.md`
+Mermaid diagrams: `architecture/mermaid/<project>.mmd`
+
+Both provide project structure views - ASCII for quick reference, Mermaid for visual exploration.
