@@ -1,0 +1,177 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-scaffolds:
+    name: Validate Architecture Scaffolds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check all scaffold files exist
+        run: |
+          set -e
+
+          EXPECTED_SCAFFOLDS=(
+            "claude-objects"
+            "dotfiles"
+            "jade-claude-settings"
+            "jade-cli"
+            "jade-dev-assist"
+            "jade-ide"
+            "jade-index"
+            "jade-swarm"
+            "jadecli-infra"
+            "jadecli-roadmap"
+          )
+
+          ERRORS=0
+
+          for scaffold in "${EXPECTED_SCAFFOLDS[@]}"; do
+            FILE="architecture/ascii/scaffolds/${scaffold}.md"
+            if [ ! -f "$FILE" ]; then
+              echo "❌ Missing: $FILE"
+              ERRORS=$((ERRORS + 1))
+            else
+              echo "✓ Found: $FILE"
+            fi
+          done
+
+          if [ $ERRORS -gt 0 ]; then
+            echo ""
+            echo "❌ $ERRORS scaffold files missing"
+            exit 1
+          fi
+
+          echo ""
+          echo "✓ All scaffold files present"
+
+  validate-submodules:
+    name: Validate Submodule Config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check .gitmodules structure
+        run: |
+          set -e
+
+          if [ ! -f .gitmodules ]; then
+            echo "❌ .gitmodules file missing"
+            exit 1
+          fi
+
+          EXPECTED_SUBMODULES=(
+            "origin/claude-objects"
+            "origin/dotfiles"
+            "origin/jade-claude-settings"
+            "origin/jade-cli"
+            "origin/jade-dev-assist"
+            "origin/jade-ide"
+            "origin/jade-index"
+            "origin/jade-swarm"
+            "origin/jadecli-infra"
+            "origin/jadecli-roadmap-and-architecture"
+          )
+
+          ERRORS=0
+
+          for submodule in "${EXPECTED_SUBMODULES[@]}"; do
+            if ! grep -q "path = $submodule" .gitmodules; then
+              echo "❌ Missing submodule: $submodule"
+              ERRORS=$((ERRORS + 1))
+            else
+              echo "✓ Found: $submodule"
+            fi
+          done
+
+          if [ $ERRORS -gt 0 ]; then
+            echo ""
+            echo "❌ $ERRORS submodules missing from .gitmodules"
+            exit 1
+          fi
+
+          echo ""
+          echo "✓ All submodules configured"
+
+  validate-platform-docs:
+    name: Validate Platform Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check platform README files
+        run: |
+          set -e
+
+          PLATFORMS=("linux" "macos" "windows")
+          ERRORS=0
+
+          for platform in "${PLATFORMS[@]}"; do
+            FILE="local/${platform}/README.md"
+            if [ ! -f "$FILE" ]; then
+              echo "❌ Missing: $FILE"
+              ERRORS=$((ERRORS + 1))
+            else
+              echo "✓ Found: $FILE"
+            fi
+          done
+
+          if [ $ERRORS -gt 0 ]; then
+            echo ""
+            echo "❌ $ERRORS platform docs missing"
+            exit 1
+          fi
+
+          echo ""
+          echo "✓ All platform docs present"
+
+  markdown-links:
+    name: Check Markdown Links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for broken internal links
+        run: |
+          set -e
+
+          # Find all markdown files and check for broken internal links
+          ERRORS=0
+
+          for md in $(find . -name "*.md" -not -path "./.git/*" -not -path "./origin/*"); do
+            # Extract internal links (not http/https)
+            LINKS=$(grep -oE '\[.+\]\([^)]+\)' "$md" 2>/dev/null | grep -v 'http' | grep -oE '\(([^)]+)\)' | tr -d '()' || true)
+
+            for link in $LINKS; do
+              # Skip anchors
+              if [[ "$link" == \#* ]]; then
+                continue
+              fi
+
+              # Resolve relative path
+              DIR=$(dirname "$md")
+              TARGET="$DIR/$link"
+
+              if [ ! -e "$TARGET" ]; then
+                echo "❌ Broken link in $md: $link"
+                ERRORS=$((ERRORS + 1))
+              fi
+            done
+          done
+
+          if [ $ERRORS -gt 0 ]; then
+            echo ""
+            echo "⚠️  $ERRORS broken links found (non-blocking)"
+          else
+            echo "✓ No broken internal links"
+          fi
