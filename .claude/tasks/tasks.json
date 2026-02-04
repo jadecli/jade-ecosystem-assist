@@ -90,6 +90,32 @@
           "Integrates with jade-start --health"
         ]
       }
+    },
+    {
+      "id": "jade-ecosystem-assist/setup-jade-claude-settings",
+      "title": "Set up jade-claude-settings with standard project patterns",
+      "description": "Add jade-claude-settings to the ecosystem with the same patterns as other jadecli projects: GitHub Project board, CI workflow, PR template, tasks.json, commitlint, and CLAUDE.md.",
+      "status": "pending",
+      "complexity": "S",
+      "blocked_by": [],
+      "unlocks": [],
+      "milestone": "Ecosystem Context Hub",
+      "labels": ["setup"],
+      "github_issue": 6,
+      "feature": {
+        "description": "Fully integrate jade-claude-settings into ecosystem tooling",
+        "benefit": "Consistent project patterns across all 11 repos",
+        "acceptance_criteria": [
+          "GitHub Project board created and linked to repo",
+          ".github/PULL_REQUEST_TEMPLATE.md added",
+          ".github/workflows/ci.yml added (markdown validation)",
+          ".github/workflows/release-please.yml added",
+          ".claude/tasks/tasks.json seeded with initial tasks",
+          "commitlint + husky configured",
+          "CLAUDE.md added for Claude Code context",
+          "Tasks synced to GitHub Project board"
+        ]
+      }
     }
   ]
 }
