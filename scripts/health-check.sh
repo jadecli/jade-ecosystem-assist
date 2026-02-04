@@ -25,6 +25,7 @@ PROJECTS_ROOT="$HOME/projects"
 QUICK_MODE=false
 JSON_OUTPUT=false
 SINGLE_PROJECT=""
+FIX_MODE=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -37,12 +38,17 @@ while [[ $# -gt 0 ]]; do
       JSON_OUTPUT=true
       shift
       ;;
+    --fix|-f)
+      FIX_MODE=true
+      shift
+      ;;
     -h|--help)
       echo "Usage: $(basename "$0") [OPTIONS] [PROJECT]"
       echo ""
       echo "Options:"
       echo "  --quick, -q    Skip slow checks (tests, full builds)"
       echo "  --json, -j     Output results as JSON"
+      echo "  --fix, -f      Auto-repair common issues"
       echo "  -h, --help     Show this help"
       echo ""
       echo "Projects:"
@@ -82,6 +88,54 @@ declare -A RESULTS
 declare -A MESSAGES
 HEALTHY_COUNT=0
 TOTAL_COUNT=0
+
+# Function to attempt auto-repair
+attempt_fix() {
+  local name="$1"
+  local dir="$2"
+  local check_type="$3"
+  local project_path="$PROJECTS_ROOT/$dir"
+
+  if [[ ! -d "$project_path" ]]; then
+    return 1
+  fi
+
+  cd "$project_path"
+
+  case "$check_type" in
+    python)
+      if [[ ! -d ".venv" ]]; then
+        echo "  🔧 Fixing $name: Running uv sync..."
+        if command -v uv &>/dev/null; then
+          uv sync --quiet 2>/dev/null && return 0
+        fi
+      fi
+      return 1
+      ;;
+
+    node)
+      if [[ ! -d "node_modules" ]]; then
+        echo "  🔧 Fixing $name: Running npm install..."
+        if command -v npm &>/dev/null; then
+          npm install --silent 2>/dev/null && return 0
+        fi
+      fi
+      return 1
+      ;;
+
+    docker)
+      echo "  🔧 Fixing $name: Validating docker compose..."
+      if command -v docker &>/dev/null; then
+        docker compose config -q 2>/dev/null && return 0
+      fi
+      return 1
+      ;;
+
+    *)
+      return 1
+      ;;
+  esac
+}
 
 # Function to check a single project
 check_project() {
@@ -233,6 +287,17 @@ for project_def in "${PROJECTS[@]}"; do
 
   check_project "$name" "$dir" "$cmd" "$check_type"
   TOTAL_COUNT=$((TOTAL_COUNT + 1))
+
+  # Attempt fix if enabled and check didn't pass
+  if [[ "$FIX_MODE" == "true" ]] && [[ "${RESULTS[$name]}" != "pass" ]]; then
+    if attempt_fix "$name" "$dir" "$check_type"; then
+      # Re-check after fix
+      check_project "$name" "$dir" "$cmd" "$check_type"
+      if [[ "${RESULTS[$name]}" == "pass" ]]; then
+        MESSAGES["$name"]="${MESSAGES[$name]} (fixed)"
+      fi
+    fi
+  fi
 
   if [[ "${RESULTS[$name]}" == "pass" ]]; then
     HEALTHY_COUNT=$((HEALTHY_COUNT + 1))
