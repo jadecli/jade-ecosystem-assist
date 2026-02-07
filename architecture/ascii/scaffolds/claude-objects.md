@@ -1,3 +1,25 @@
+---
+entity_id: scaffold-claude-objects
+entity_name: claude-objects
+entity_type: project_scaffold
+entity_language: python
+entity_status: buildable
+entity_path: modules/claude-objects
+entity_dependencies:
+  core: [fastmcp, httpx, pydantic, asyncio]
+  testing: [pytest, pytest-asyncio]
+  dev: [ruff, ty]
+entity_services:
+  - mcp-server-claude-tools
+  - mcp-server-jade-tool-agent
+  - mcp-server-jade-swarm
+  - mcp-server-tdd-agent-workflow
+entity_ports: []
+entity_health_check: "cd modules/claude-objects && uv run pytest tests/"
+entity_created: 2026-02-04
+entity_last_validated: 2026-02-04
+---
+
 # claude-objects
 
 FastMCP servers exposing jadecli functionality to Claude Code.

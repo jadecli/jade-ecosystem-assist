@@ -1,3 +1,21 @@
+---
+entity_id: scaffold-dotfiles
+entity_name: dotfiles
+entity_type: project_scaffold
+entity_language: shell
+entity_status: buildable
+entity_path: modules/dotfiles
+entity_dependencies:
+  core: [chezmoi]
+  testing: []
+  dev: []
+entity_services: []
+entity_ports: []
+entity_health_check: "cd modules/dotfiles && chezmoi verify"
+entity_created: 2026-02-04
+entity_last_validated: 2026-02-04
+---
+
 # dotfiles
 
 Chezmoi-managed developer environment for jadecli ecosystem.

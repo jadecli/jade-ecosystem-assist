@@ -19,6 +19,38 @@ cat architecture/ascii/scaffolds/*.md | claude
 jade-start --context
 ```
 
+## Automatic Context Loading
+
+This repo has a session start hook that auto-loads context. When you start a Claude Code session:
+
+1. Hook checks if `~/.jade/context.md` is stale (> 1 hour)
+2. Regenerates if needed via `generate-context.sh --brief`
+3. Context is automatically available in the session
+
+**You don't need to manually run any commands** - context is always fresh.
+
+### Manual Regeneration
+
+Force regeneration:
+```bash
+./scripts/generate-context.sh
+```
+
+### Query Scaffolds
+
+Find projects programmatically:
+
+```bash
+# All Python projects
+./scripts/query-scaffolds.sh --language python
+
+# Projects using specific dependency
+./scripts/query-scaffolds.sh --dependency pytest
+
+# Buildable projects
+./scripts/query-scaffolds.sh --status buildable
+```
+
 ## Structure
 
 ```

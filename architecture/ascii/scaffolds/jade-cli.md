@@ -1,3 +1,21 @@
+---
+entity_id: scaffold-jade-cli
+entity_name: jade-cli
+entity_type: project_scaffold
+entity_language: typescript
+entity_status: buildable
+entity_path: modules/jade-cli
+entity_dependencies:
+  core: [ink, react, zustand]
+  testing: [vitest]
+  dev: [typescript, tsx]
+entity_services: []
+entity_ports: []
+entity_health_check: "cd modules/jade-cli && npm test"
+entity_created: 2026-02-04
+entity_last_validated: 2026-02-04
+---
+
 # jade-cli
 
 React Ink terminal UI for task management and orchestrator visualization.
