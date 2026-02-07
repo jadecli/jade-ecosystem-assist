@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-# generate-context.sh - Generate consolidated context.md from ecosystem scaffolds
+# generate-context.sh - Generate consolidated context.md from ecosystem state
+# Reads ~/.jade/projects.json for project registry and combines:
+#   - Project CLAUDE.md files
+#   - Task summaries from .claude/tasks/tasks.json
+#   - Architecture scaffold files
+#
 # Output: ~/.jade/context.md (default) or stdout with -o -
 #
 # Usage:
@@ -7,6 +12,7 @@
 #   ./generate-context.sh -o -         # Write to stdout
 #   ./generate-context.sh -o /path     # Write to custom path
 #   ./generate-context.sh --brief      # Shorter output (~8k tokens)
+#   ./generate-context.sh --focus NAME # Single-project context
 
 set -euo pipefail
 
@@ -14,6 +20,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 SCAFFOLDS_DIR="$REPO_ROOT/architecture/ascii/scaffolds"
+PROJECTS_JSON="$HOME/.jade/projects.json"
 DEFAULT_OUTPUT="$HOME/.jade/context.md"
 MAX_TOKENS=15000  # Target ~15k tokens (roughly 60k chars)
 CHARS_PER_TOKEN=4
@@ -44,7 +51,7 @@ while [[ $# -gt 0 ]]; do
       echo "Options:"
       echo "  -o, --output PATH     Output file (default: ~/.jade/context.md, use '-' for stdout)"
       echo "  --brief               Generate shorter context (~8k tokens)"
-      echo "  --focus PROJECT       Generate focused context for single project"
+      echo "  --focus PROJECT       Generate focused context for single project (name or alias)"
       echo "  -h, --help            Show this help"
       exit 0
       ;;
@@ -60,6 +67,21 @@ if [[ "$OUTPUT" != "-" ]]; then
   mkdir -p "$(dirname "$OUTPUT")"
 fi
 
+# Verify dependencies
+if ! command -v jq &>/dev/null; then
+  echo "Error: jq is required but not installed." >&2
+  exit 1
+fi
+
+if [[ ! -f "$PROJECTS_JSON" ]]; then
+  echo "Error: Project registry not found at $PROJECTS_JSON" >&2
+  echo "Create it or run jade-start --init first." >&2
+  exit 1
+fi
+
+# Read projects_dir from registry
+PROJECTS_BASE="$(jq -r '.projects_dir // "~/projects"' "$PROJECTS_JSON" | sed "s|~|$HOME|")"
+
 # Function to write output
 write_output() {
   if [[ "$OUTPUT" == "-" ]]; then
@@ -69,39 +91,98 @@ write_output() {
   fi
 }
 
-# Function to get project status from tasks.json
-get_project_status() {
+# Track total character count for token budget
+TOTAL_CHARS=0
+MAX_CHARS=$((MAX_TOKENS * CHARS_PER_TOKEN))
+BUDGET_EXCEEDED=false
+
+# Append text with budget tracking
+emit() {
+  local text="$1"
+  local text_len=${#text}
+
+  if [[ "$BUDGET_EXCEEDED" == "true" ]]; then
+    return
+  fi
+
+  if [[ $((TOTAL_CHARS + text_len)) -gt $MAX_CHARS ]]; then
+    # Emit truncation notice and stop
+    echo ""
+    echo "_[Context truncated at ~$((TOTAL_CHARS / CHARS_PER_TOKEN)) tokens to stay within ${MAX_TOKENS}-token budget.]_"
+    BUDGET_EXCEEDED=true
+    return
+  fi
+
+  echo "$text"
+  TOTAL_CHARS=$((TOTAL_CHARS + text_len))
+}
+
+# Get the resolved path for a project
+resolve_project_path() {
+  local name="$1"
+  echo "${PROJECTS_BASE}/${name}"
+}
+
+# Get task counts and pending task titles from tasks.json
+get_task_summary() {
   local project_dir="$1"
   local tasks_file="$project_dir/.claude/tasks/tasks.json"
 
-  if [[ -f "$tasks_file" ]]; then
-    local total=$(jq '.tasks | length' "$tasks_file" 2>/dev/null || echo 0)
-    local completed=$(jq '[.tasks[] | select(.status == "completed")] | length' "$tasks_file" 2>/dev/null || echo 0)
-    local pending=$(jq '[.tasks[] | select(.status == "pending")] | length' "$tasks_file" 2>/dev/null || echo 0)
-    local in_progress=$(jq '[.tasks[] | select(.status == "in_progress" or .status == "in-progress")] | length' "$tasks_file" 2>/dev/null || echo 0)
-    echo "$completed/$total done, $pending pending, $in_progress active"
-  else
-    echo "no tasks.json"
+  if [[ ! -f "$tasks_file" ]]; then
+    echo "COUNTS:no tasks file"
+    return
   fi
+
+  local total completed pending in_progress
+  total=$(jq '.tasks | length' "$tasks_file" 2>/dev/null || echo 0)
+  completed=$(jq '[.tasks[] | select(.status == "completed")] | length' "$tasks_file" 2>/dev/null || echo 0)
+  pending=$(jq '[.tasks[] | select(.status == "pending")] | length' "$tasks_file" 2>/dev/null || echo 0)
+  in_progress=$(jq '[.tasks[] | select(.status == "in_progress" or .status == "in-progress")] | length' "$tasks_file" 2>/dev/null || echo 0)
+
+  echo "COUNTS:${completed}/${total} done, ${pending} pending, ${in_progress} active"
+
+  # Output pending/active task titles (up to 5)
+  jq -r '
+    [.tasks[] | select(.status == "pending" or .status == "in_progress" or .status == "in-progress")]
+    | sort_by(if .status == "in_progress" or .status == "in-progress" then 0 else 1 end)
+    | .[0:5][]
+    | "TASK:" + .status + ":" + .title
+  ' "$tasks_file" 2>/dev/null || true
 }
 
-# Function to check if project is healthy
+# Extract first meaningful description line from CLAUDE.md
+get_project_description() {
+  local claude_md="$1/CLAUDE.md"
+
+  if [[ ! -f "$claude_md" ]]; then
+    echo ""
+    return
+  fi
+
+  # Get the first non-empty, non-heading line as a brief description
+  local desc
+  desc=$(sed -n '/^[^#\[]/{/^$/d; s/^[[:space:]]*//; p; q;}' "$claude_md" 2>/dev/null || echo "")
+  # Truncate to 80 chars
+  if [[ ${#desc} -gt 80 ]]; then
+    desc="${desc:0:77}..."
+  fi
+  echo "$desc"
+}
+
+# Check project health
 check_project_health() {
   local project_dir="$1"
-  local name="$2"
 
-  # Check if directory exists and has content
   if [[ ! -d "$project_dir" ]]; then
     echo "missing"
     return
   fi
 
-  # Check for common health indicators
   if [[ -f "$project_dir/package.json" ]]; then
     if [[ -d "$project_dir/node_modules" ]]; then
       echo "ready"
     else
-      echo "needs npm install"
+      echo "needs install"
     fi
   elif [[ -f "$project_dir/pyproject.toml" ]]; then
     if [[ -d "$project_dir/.venv" ]]; then
@@ -116,246 +197,208 @@ check_project_health() {
   fi
 }
 
-# Function to get recent commit activity
-get_recent_commits() {
-  local project_dir="$1"
-  local limit="${2:-3}"
-
-  if [[ ! -d "$project_dir/.git" ]]; then
-    echo "not a git repo"
-    return
-  fi
-
-  cd "$project_dir"
-  git log -n "$limit" --pretty=format:"%h %ar: %s" 2>/dev/null || echo "no commits"
-  cd - &>/dev/null
-}
-
-# Function to check if submodule is stale
-check_submodule_staleness() {
-  local submodule_path="$1"
-
-  if [[ ! -d "$submodule_path/.git" ]] && [[ ! -f "$submodule_path/.git" ]]; then
-    echo "not-initialized"
-    return
-  fi
-
-  cd "$submodule_path"
-
-  # Fetch remote to get latest info (quietly)
-  git fetch origin --quiet 2>/dev/null || {
-    echo "fetch-failed"
-    cd - &>/dev/null
-    return
-  }
-
-  # Get current commit and remote head
-  local current=$(git rev-parse HEAD 2>/dev/null)
-  local remote=$(git rev-parse origin/HEAD 2>/dev/null || git rev-parse origin/main 2>/dev/null || git rev-parse origin/master 2>/dev/null)
-
-  if [[ "$current" == "$remote" ]]; then
-    echo "up-to-date"
-  else
-    local behind=$(git rev-list --count HEAD..origin/HEAD 2>/dev/null || git rev-list --count HEAD..origin/main 2>/dev/null || echo "0")
-    local ahead=$(git rev-list --count origin/HEAD..HEAD 2>/dev/null || git rev-list --count origin/main..HEAD 2>/dev/null || echo "0")
-
-    if [[ $behind -gt 0 ]] && [[ $ahead -eq 0 ]]; then
-      echo "behind-$behind"
-    elif [[ $ahead -gt 0 ]] && [[ $behind -eq 0 ]]; then
-      echo "ahead-$ahead"
-    else
-      echo "diverged"
-    fi
-  fi
-
-  cd - &>/dev/null
-}
-
 # Generate the context document
 generate_context() {
-  local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  local timestamp
+  timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-  cat << 'HEADER'
-# jadecli Ecosystem Context
+  emit "# jadecli Ecosystem Context"
+  emit ""
+  emit "Auto-generated context for Claude Code sessions."
+  emit ""
+  emit "Generated: $timestamp"
+  emit ""
 
-Auto-generated context for Claude Code sessions.
+  # --- Project Summary Table ---
+  emit "## Projects Overview"
+  emit ""
+  emit "| Project | Alias | Language | Status | Tasks |"
+  emit "|---------|-------|----------|--------|-------|"
 
-HEADER
+  # Read projects from registry
+  local project_count
+  project_count=$(jq '.projects | length' "$PROJECTS_JSON")
 
-  echo "Generated: $timestamp"
-  echo ""
+  for i in $(seq 0 $((project_count - 1))); do
+    local name alias language
+    name=$(jq -r ".projects[$i].name" "$PROJECTS_JSON")
+    alias=$(jq -r ".projects[$i].alias // \"-\"" "$PROJECTS_JSON")
+    language=$(jq -r ".projects[$i].language // \"unknown\"" "$PROJECTS_JSON")
 
-  # Project summary table
-  echo "## Projects Overview"
-  echo ""
-  echo "| Project | Path | Status | Tasks |"
-  echo "|---------|------|--------|-------|"
-
-  # List of projects with their local paths
-  declare -A projects=(
-    ["claude-objects"]="$HOME/projects/claude-objects"
-    ["dotfiles"]="$HOME/projects/dotfiles"
-    ["jade-claude-settings"]="$HOME/projects/jade-claude-settings"
-    ["jade-cli"]="$HOME/projects/jade-cli"
-    ["jade-dev-assist"]="$HOME/projects/jade-dev-assist"
-    ["jade-ide"]="$HOME/projects/jade-ide"
-    ["jade-index"]="$HOME/projects/jade-index"
-    ["jade-swarm-superpowers"]="$HOME/projects/jade-swarm-superpowers"
-    ["jadecli-infra"]="$HOME/projects/jadecli-infra"
-    ["jadecli-roadmap"]="$HOME/projects/jadecli-roadmap-and-architecture"
-  )
-
-  for name in $(echo "${!projects[@]}" | tr ' ' '\n' | sort); do
-    # Skip if focus mode and doesn't match
-    if [[ -n "$FOCUS_PROJECT" ]] && [[ "$name" != "$FOCUS_PROJECT" ]]; then
+    # Skip if focus mode and doesn't match name or alias
+    if [[ -n "$FOCUS_PROJECT" ]] && [[ "$name" != "$FOCUS_PROJECT" ]] && [[ "$alias" != "$FOCUS_PROJECT" ]]; then
       continue
     fi
 
-    local path="${projects[$name]}"
-    local health=$(check_project_health "$path" "$name")
-    local tasks=$(get_project_status "$path")
-    echo "| $name | ${path#$HOME/} | $health | $tasks |"
+    local path
+    path=$(resolve_project_path "$name")
+    local health
+    health=$(check_project_health "$path")
+
+    # Get task counts only (first line of summary)
+    local task_counts="n/a"
+    if [[ -d "$path" ]]; then
+      local summary_output
+      summary_output=$(get_task_summary "$path")
+      task_counts=$(echo "$summary_output" | grep "^COUNTS:" | head -1 | sed 's/^COUNTS://')
+    fi
+
+    emit "| $name | $alias | $language | $health | $task_counts |"
   done
 
-  echo ""
+  emit ""
 
-  # Recent commit activity
+  # --- Key Tasks Summary ---
+  emit "## Key Tasks"
+  emit ""
+
+  local has_tasks=false
+
+  for i in $(seq 0 $((project_count - 1))); do
+    local name alias
+    name=$(jq -r ".projects[$i].name" "$PROJECTS_JSON")
+    alias=$(jq -r ".projects[$i].alias // \"-\"" "$PROJECTS_JSON")
+
+    if [[ -n "$FOCUS_PROJECT" ]] && [[ "$name" != "$FOCUS_PROJECT" ]] && [[ "$alias" != "$FOCUS_PROJECT" ]]; then
+      continue
+    fi
+
+    local path
+    path=$(resolve_project_path "$name")
+
+    if [[ ! -d "$path" ]]; then
+      continue
+    fi
+
+    local summary_output
+    summary_output=$(get_task_summary "$path")
+    local task_lines
+    task_lines=$(echo "$summary_output" | grep "^TASK:" || true)
+
+    if [[ -n "$task_lines" ]]; then
+      has_tasks=true
+      emit "### $name"
+      emit ""
+
+      while IFS= read -r line; do
+        local status title
+        status=$(echo "$line" | cut -d: -f2)
+        title=$(echo "$line" | cut -d: -f3-)
+
+        local marker="[ ]"
+        if [[ "$status" == "in_progress" ]] || [[ "$status" == "in-progress" ]]; then
+          marker="[>]"
+        fi
+
+        emit "- ${marker} ${title}"
+      done <<< "$task_lines"
+
+      emit ""
+    fi
+  done
+
+  if [[ "$has_tasks" == "false" ]]; then
+    emit "_No pending or active tasks found._"
+    emit ""
+  fi
+
+  # --- CLAUDE.md Summaries (non-brief only) ---
   if [[ "$BRIEF" != "true" ]]; then
-    echo "## Recent Activity"
-    echo ""
+    emit "## Project Descriptions"
+    emit ""
 
-    for name in $(echo "${!projects[@]}" | tr ' ' '\n' | sort); do
-      # Skip if focus mode and doesn't match
-      if [[ -n "$FOCUS_PROJECT" ]] && [[ "$name" != "$FOCUS_PROJECT" ]]; then
+    for i in $(seq 0 $((project_count - 1))); do
+      local name alias
+      name=$(jq -r ".projects[$i].name" "$PROJECTS_JSON")
+      alias=$(jq -r ".projects[$i].alias // \"-\"" "$PROJECTS_JSON")
+
+      if [[ -n "$FOCUS_PROJECT" ]] && [[ "$name" != "$FOCUS_PROJECT" ]] && [[ "$alias" != "$FOCUS_PROJECT" ]]; then
         continue
       fi
 
-      local path="${projects[$name]}"
-      if [[ -d "$path" ]]; then
-        echo "### $name"
-        echo ""
-        echo '```'
-        get_recent_commits "$path" 3
-        echo '```'
-        echo ""
+      local path
+      path=$(resolve_project_path "$name")
+      local claude_md="$path/CLAUDE.md"
+
+      if [[ -f "$claude_md" ]]; then
+        # Extract the title (first # heading) and first paragraph
+        local heading
+        heading=$(head -5 "$claude_md" | grep "^# " | head -1 || echo "# $name")
+        local desc
+        desc=$(get_project_description "$path")
+
+        emit "### ${heading#\# }"
+        if [[ -n "$desc" ]]; then
+          emit "$desc"
+        fi
+        emit ""
       fi
     done
   fi
 
-  # Architecture scaffolds (the main content)
-  echo "## Architecture Scaffolds"
-  echo ""
-
+  # --- Architecture Scaffolds ---
   if [[ -d "$SCAFFOLDS_DIR" ]]; then
-    local total_chars=0
-    local max_chars=$((MAX_TOKENS * CHARS_PER_TOKEN))
+    local scaffold_files
+    scaffold_files=$(ls "$SCAFFOLDS_DIR"/*.md 2>/dev/null || true)
 
-    for scaffold in "$SCAFFOLDS_DIR"/*.md; do
-      if [[ -f "$scaffold" ]]; then
-        local name=$(basename "$scaffold" .md)
+    if [[ -n "$scaffold_files" ]]; then
+      emit "## Architecture Scaffolds"
+      emit ""
+
+      for scaffold in $scaffold_files; do
+        if [[ "$BUDGET_EXCEEDED" == "true" ]]; then
+          break
+        fi
+
+        local sname
+        sname=$(basename "$scaffold" .md)
 
         # Skip if focus mode and doesn't match
-        if [[ -n "$FOCUS_PROJECT" ]] && [[ "$name" != "$FOCUS_PROJECT" ]]; then
+        if [[ -n "$FOCUS_PROJECT" ]] && [[ "$sname" != "$FOCUS_PROJECT" ]]; then
           continue
         fi
 
-        local content=$(cat "$scaffold")
+        local content
+        content=$(cat "$scaffold")
         local content_chars=${#content}
 
         # Check if adding this would exceed budget
-        if [[ $((total_chars + content_chars)) -gt $max_chars ]]; then
-          if [[ "$BRIEF" == "true" ]]; then
-            echo "### $name"
-            echo ""
-            echo "_[Truncated for token budget. Run without --brief for full content.]_"
-            echo ""
-          else
-            echo "### $name"
-            echo ""
-            echo "$content"
-            echo ""
-          fi
+        if [[ $((TOTAL_CHARS + content_chars + 50)) -gt $MAX_CHARS ]]; then
+          emit "### $sname"
+          emit ""
+          emit "_[Scaffold truncated for token budget. Use --focus $sname for full content.]_"
+          emit ""
+          break  # Remaining scaffolds won't fit either
         else
-          echo "### $name"
-          echo ""
-          echo "$content"
-          echo ""
-          total_chars=$((total_chars + content_chars))
+          emit "### $sname"
+          emit ""
+          emit "$content"
+          emit ""
         fi
-      fi
-    done
-  else
-    echo "_No scaffolds directory found at $SCAFFOLDS_DIR_"
-    echo ""
+      done
+    fi
   fi
 
-  # Submodule status
-  echo "## Submodule Status"
-  echo ""
+  # --- Infrastructure (compact) ---
+  emit "## Infrastructure"
+  emit ""
+  emit "Docker services (jadecli-infra): PostgreSQL 16+pgvector (5432), MongoDB 7 (27017), Dragonfly (6379), Ollama (11434)"
+  emit ""
 
-  if [[ -f "$REPO_ROOT/.gitmodules" ]]; then
-    echo "| Submodule | Status |"
-    echo "|-----------|--------|"
+  # --- Quick Commands ---
+  emit "## Quick Commands"
+  emit ""
+  emit '```bash'
+  emit "jade-start              # Ecosystem dashboard"
+  emit "jade-start <alias>      # Open project in Claude Code"
+  emit "jade-start --health     # Run health checks"
+  emit "jade-start --context    # Regenerate this file"
+  emit '```'
+  emit ""
 
-    # Parse .gitmodules for submodule paths
-    grep -E "^\[submodule" "$REPO_ROOT/.gitmodules" | sed 's/\[submodule "\(.*\)"\]/\1/' | while read -r name; do
-      local path=$(grep -A 2 "^\[submodule \"$name\"\]" "$REPO_ROOT/.gitmodules" | grep "path = " | cut -d'=' -f2 | xargs)
-      if [[ -n "$path" ]]; then
-        local status=$(check_submodule_staleness "$REPO_ROOT/$path")
-
-        case "$status" in
-          up-to-date)
-            echo "| $name | ✅ Up to date |"
-            ;;
-          behind-*)
-            local count=$(echo "$status" | cut -d'-' -f2)
-            echo "| $name | ⚠️ Behind by $count commits |"
-            ;;
-          ahead-*)
-            local count=$(echo "$status" | cut -d'-' -f2)
-            echo "| $name | ⚠️ Ahead by $count commits |"
-            ;;
-          diverged)
-            echo "| $name | ❌ Diverged from remote |"
-            ;;
-          not-initialized)
-            echo "| $name | ❌ Not initialized |"
-            ;;
-          fetch-failed)
-            echo "| $name | ⚠️ Fetch failed |"
-            ;;
-        esac
-      fi
-    done
-  else
-    echo "_No .gitmodules file found_"
-  fi
-  echo ""
-
-  # Infrastructure status
-  echo "## Infrastructure"
-  echo ""
-  echo "Docker services (jadecli-infra):"
-  echo "- PostgreSQL 16 + pgvector (5432)"
-  echo "- MongoDB 7 (27017)"
-  echo "- Dragonfly cache (6379)"
-  echo "- Ollama (11434, optional)"
-  echo ""
-
-  # Quick commands
-  echo "## Quick Commands"
-  echo ""
-  echo '```bash'
-  echo "jade-start              # Ecosystem dashboard"
-  echo "jade-start <alias>      # Open project in Claude Code"
-  echo "jade-start --health     # Run health checks"
-  echo "jade-start --context    # Regenerate this file"
-  echo '```'
-  echo ""
-
-  # Footer
-  echo "---"
-  echo "_Context generated by jade-ecosystem-assist/scripts/generate-context.sh_"
+  # --- Footer ---
+  emit "---"
+  emit "_Context generated by jade-ecosystem-assist/scripts/generate-context.sh_"
 }
 
 # Run
