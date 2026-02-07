@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/jadecli/jade-ecosystem-assist/compare/v0.3.0...v0.4.0) (2026-02-07)
+
+
+### Features
+
+* read project registry and CLAUDE.md files for context generation ([#14](https://github.com/jadecli/jade-ecosystem-assist/issues/14)) ([5228eab](https://github.com/jadecli/jade-ecosystem-assist/commit/5228eab635f64ec732997d9da34109cc6564f0f6)), closes [#3](https://github.com/jadecli/jade-ecosystem-assist/issues/3)
+
 ## [0.3.0](https://github.com/jadecli/jade-ecosystem-assist/compare/v0.2.0...v0.3.0) (2026-02-07)
 
 
