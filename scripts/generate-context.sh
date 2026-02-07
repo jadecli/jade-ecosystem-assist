@@ -10,12 +10,15 @@
 
 set -euo pipefail
 
-# Configuration
+# Load settings from centralized config
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+source "$SCRIPT_DIR/load-settings.sh"
+
+# Configuration
+REPO_ROOT="$ECOSYSTEM_ASSIST_ROOT"
 SCAFFOLDS_DIR="$REPO_ROOT/architecture/ascii/scaffolds"
-DEFAULT_OUTPUT="$HOME/.jade/context.md"
-MAX_TOKENS=15000  # Target ~15k tokens (roughly 60k chars)
+DEFAULT_OUTPUT="$JADE_CONTEXT_FILE"
+MAX_TOKENS="$CONTEXT_TOKEN_BUDGET"
 CHARS_PER_TOKEN=4
 
 # Parse arguments

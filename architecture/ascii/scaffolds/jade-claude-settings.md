@@ -1,3 +1,21 @@
+---
+entity_id: scaffold-jade-claude-settings
+entity_name: jade-claude-settings
+entity_type: project_scaffold
+entity_language: markdown
+entity_status: scaffolding
+entity_path: modules/jade-claude-settings
+entity_dependencies:
+  core: []
+  testing: []
+  dev: []
+entity_services: []
+entity_ports: []
+entity_health_check: "cd modules/jade-claude-settings && find plugins -name '*.md' | wc -l"
+entity_created: 2026-02-04
+entity_last_validated: 2026-02-04
+---
+
 # jade-claude-settings
 
 Curated Claude Code plugins, research documentation, and development environment setup.

@@ -1,3 +1,21 @@
+---
+entity_id: scaffold-jadecli-roadmap
+entity_name: jadecli-roadmap-and-architecture
+entity_type: project_scaffold
+entity_language: markdown
+entity_status: scaffolding
+entity_path: modules/jadecli-roadmap-and-architecture
+entity_dependencies:
+  core: []
+  testing: []
+  dev: []
+entity_services: []
+entity_ports: []
+entity_health_check: "cd modules/jadecli-roadmap-and-architecture && find docs -name '*.md' | wc -l"
+entity_created: 2026-02-04
+entity_last_validated: 2026-02-04
+---
+
 # jadecli-roadmap-and-architecture
 
 Architecture decisions, diagrams, and roadmap for the jadecli ecosystem.

@@ -104,3 +104,50 @@ ASCII scaffolds: `architecture/ascii/scaffolds/<project>.md`
 Mermaid diagrams: `architecture/mermaid/<project>.mmd`
 
 Both provide project structure views - ASCII for quick reference, Mermaid for visual exploration.
+
+## New Features
+
+### Queryable Scaffolds
+
+All architecture scaffolds now have structured YAML frontmatter for programmatic querying:
+
+```bash
+# Find all Python projects
+./scripts/query-scaffolds.sh --language python
+
+# Find projects using pytest
+./scripts/query-scaffolds.sh --dependency pytest
+
+# Get buildable projects
+./scripts/query-scaffolds.sh --status buildable
+
+# Output JSON for automation
+./scripts/query-scaffolds.sh --format json
+```
+
+See `.claude/rules/scaffold-metadata.md` for details.
+
+### Centralized Settings
+
+All scripts now use `cli/settings.py` for configuration:
+
+```python
+from cli.settings import settings
+
+context_file = settings.jade_context_file
+projects_base = settings.projects_base
+```
+
+Customize via `.env` file (copy `.env.example` to get started).
+
+See `.claude/rules/settings.md` for details.
+
+### Auto-Context Loading
+
+Session start hooks automatically refresh context when stale:
+
+- Context regenerates if > 1 hour old
+- Skips regeneration if recent
+- Configurable via settings
+
+See `.claude/rules/session-hooks.md` for details.

@@ -9,6 +9,10 @@
 
 set -euo pipefail
 
+# Load settings from centralized config
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/load-settings.sh"
+
 # Colors (disabled if not TTY)
 if [[ -t 1 ]]; then
   RED='\033[0;31m'
@@ -21,7 +25,7 @@ else
 fi
 
 # Configuration
-PROJECTS_ROOT="$HOME/projects"
+PROJECTS_ROOT="$PROJECTS_BASE"
 QUICK_MODE=false
 JSON_OUTPUT=false
 SINGLE_PROJECT=""
@@ -312,8 +316,7 @@ done
 
 # Save report if requested
 if [[ "$SAVE_REPORT" == "true" ]]; then
-  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  REPORT_DIR="$SCRIPT_DIR/../docs/health-reports"
+  REPORT_DIR="$HEALTH_REPORTS_DIR"
   mkdir -p "$REPORT_DIR"
 
   TIMESTAMP=$(date -u +"%Y-%m-%d-%H%M%S")

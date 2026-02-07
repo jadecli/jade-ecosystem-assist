@@ -1,3 +1,22 @@
+---
+entity_id: scaffold-jade-dev-assist
+entity_name: jade-dev-assist
+entity_type: project_scaffold
+entity_language: javascript
+entity_status: scaffolding
+entity_path: modules/jade-dev-assist
+entity_dependencies:
+  core: ["@anthropic-ai/sdk"]
+  testing: [jest]
+  dev: [eslint]
+entity_services:
+  - orchestrator
+entity_ports: []
+entity_health_check: "cd modules/jade-dev-assist && npm test"
+entity_created: 2026-02-04
+entity_last_validated: 2026-02-04
+---
+
 # jade-dev-assist
 
 Central orchestrator for the jadecli ecosystem - scans, scores, and dispatches tasks.

@@ -1,3 +1,25 @@
+---
+entity_id: scaffold-jadecli-infra
+entity_name: jadecli-infra
+entity_type: project_scaffold
+entity_language: yaml
+entity_status: buildable
+entity_path: modules/jadecli-infra
+entity_dependencies:
+  core: [docker-compose]
+  testing: []
+  dev: []
+entity_services:
+  - postgresql
+  - mongodb
+  - dragonfly
+  - ollama
+entity_ports: [5432, 27017, 6379, 11434]
+entity_health_check: "cd modules/jadecli-infra && docker compose ps"
+entity_created: 2026-02-04
+entity_last_validated: 2026-02-04
+---
+
 # jadecli-infra
 
 Docker Compose infrastructure stack for the jadecli ecosystem.
