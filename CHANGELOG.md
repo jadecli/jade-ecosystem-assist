@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/jadecli/jade-ecosystem-assist/compare/v0.2.0...v0.3.0) (2026-02-07)
+
+
+### Features
+
+* add automated submodule sync workflow ([5773fe7](https://github.com/jadecli/jade-ecosystem-assist/commit/5773fe755bd0665a3e0df3dbe9fc2330238fbaf2))
+* add context generation script ([66b88b4](https://github.com/jadecli/jade-ecosystem-assist/commit/66b88b4003671104347ad1b790f6bbd955a5d3a5))
+* add ecosystem health check aggregator ([9baf0d0](https://github.com/jadecli/jade-ecosystem-assist/commit/9baf0d03d32315edea222cc4b4ca782d5b2469d2))
+* Enhance ASCII scaffolds with Mermaid diagrams and dependency matrices ([114b4ec](https://github.com/jadecli/jade-ecosystem-assist/commit/114b4ec57a9c4ba82378532dcd030ff086fc7f70))
+* Enhance context generation with focus mode, commit history, and submodule detection ([0adaa1c](https://github.com/jadecli/jade-ecosystem-assist/commit/0adaa1ce7edf665152c2d03670f8d4dfcaa9c673))
+* Enhance health check with auto-repair and historical reports ([ffc5571](https://github.com/jadecli/jade-ecosystem-assist/commit/ffc557190dfd6b7870bf3658c843f76af16bf818))
+
 ## [0.2.0](https://github.com/jadecli/jade-ecosystem-assist/compare/v0.1.0...v0.2.0) (2026-02-04)
 
 
